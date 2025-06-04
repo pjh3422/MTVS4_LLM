@@ -48,9 +48,12 @@ class CardOut(BaseModel):
     next_review: datetime.datetime = None
     success_rate: float
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 수정: 카드 타입(card_type) 필드를 추가함
 class DueCardOut(BaseModel):
     card_id: str
     concept: str
+    card_type: str              # ★ 추가
     stage: int
     next_review: datetime.datetime = None
     hint: str
@@ -69,13 +72,8 @@ class ReviewResponse(BaseModel):
 class ReviewIn(BaseModel):
     user_answer: str
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 카드 생성/조회/수정/삭제
-# ─────────────────────────────────────────────────────────────────────────────
-
 @app.post("/cards", response_model=CardOut)
 def create_card(card: CardIn):
-    # ★ 자동 정의 생성: answer가 빈 문자열이고 card_type이 "concept"일 때 LLM으로 정의 생성
     if not card.answer and card.card_type == "concept":
         generated_def = llm_service.generate_concept_definition(card.concept)
         card.answer = generated_def
@@ -113,33 +111,47 @@ def get_cards():
 @app.get("/cards/due", response_model=List[DueCardOut])
 def get_due_cards(test: bool = Query(False)):
     """
-    수정: 여기서 hint를 바로 생성하지 않고 빈 문자열로 반환합니다.
-    클라이언트는 별도 엔드포인트에서 hint를 비동기로 요청해야 합니다.
+    수정: DueCardOut에 card_type을 포함하여 반환
     """
     if test:
         cards = card_service.get_all_cards()
     else:
         cards = card_service.get_due_cards()
-    return [
-        DueCardOut(
-            card_id=c.card_id,
-            concept=c.concept,
-            stage=c.stage,
-            next_review=c.next_review,
-            hint=""  # 수정: 빈 문자열로 초기화
+
+    result = []
+    for c in cards:
+        hint = ""
+        if c.card_type == "word":
+            if c.stage == 2:
+                answer = c.answer or ""
+                hint = answer[0] + "*" * (len(answer) - 1) if answer else ""
+            # stage 1, 3, 4: 빈 문자열
+        else:
+            # concept: 모든 stage에서 빈 문자열
+            hint = ""
+
+        result.append(
+            DueCardOut(
+                card_id=c.card_id,
+                concept=c.concept,
+                card_type=c.card_type,   # ★ 반환
+                stage=c.stage,
+                next_review=c.next_review,
+                hint=hint
+            )
         )
-        for c in cards
-    ]
+    return result
 
 @app.get("/cards/{card_id}/hint")
 def get_card_hint(card_id: str):
     """
-    새로운 엔드포인트: 특정 카드의 hint를 LLM을 사용해 생성하여 반환
+    Hint 엔드포인트: card_type과 stage에 따라 LLM 힌트 생성
     """
     c = card_service.get_card(card_id)
     if not c:
         raise HTTPException(status_code=404, detail="Card not found")
-    hint = llm_service.generate_hint(c.concept, c.answer, c.stage)
+
+    hint = llm_service.generate_hint(c.concept, c.answer, c.stage, c.card_type)
     return {"hint": hint}
 
 @app.get("/cards/{card_id}", response_model=CardOut)
@@ -184,10 +196,6 @@ def delete_card(card_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Card not found")
     return {"detail": "Card deleted"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 복습(리뷰) 엔드포인트
-# ─────────────────────────────────────────────────────────────────────────────
 
 @app.post("/cards/{card_id}/review", response_model=ReviewResponse)
 def review_card(

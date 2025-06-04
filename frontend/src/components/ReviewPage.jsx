@@ -15,7 +15,6 @@ export default function ReviewPage() {
   const [countdown, setCountdown] = useState({});
   const [loadingCard, setLoadingCard] = useState({});
 
-  // 관련 개념 선택 모달 상태
   const [relatedList, setRelatedList] = useState([]);
   const [selectedCardId, setSelectedCardId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,16 +23,10 @@ export default function ReviewPage() {
     setLoading(true);
     try {
       const data = await fetchDueCards(testMode);
-      // 빈 hint로 초기화된 카드 목록을 먼저 화면에 표시
+      // card_type 필드가 포함된 data를 set
       setDueCards(data);
 
-      const initText = {};
-      const initFeedback = {};
-      const initSubmitted = {};
-      const initRetry = {};
-      const initCountdown = {};
-      const initLoading = {};
-
+      const initText = {}, initFeedback = {}, initSubmitted = {}, initRetry = {}, initCountdown = {}, initLoading = {};
       data.forEach((c) => {
         initText[c.card_id] = "";
         initFeedback[c.card_id] = "";
@@ -41,8 +34,8 @@ export default function ReviewPage() {
         initRetry[c.card_id] = false;
         initCountdown[c.card_id] = 0;
         initLoading[c.card_id] = false;
-        // ★ 빈 hint 설정 (백엔드가 빈 문자열로 보냄)
-        c.hint = "";
+        // hint는 이미 word stage2에서 셋팅됐거나 빈 문자열
+        c.hint = c.hint || "";
       });
 
       setCurrentAnswer(initText);
@@ -52,17 +45,25 @@ export default function ReviewPage() {
       setCountdown(initCountdown);
       setLoadingCard(initLoading);
 
-      // 각 카드에 대해 비동기로 hint 요청
+      // 힌트가 필요한 카드만 비동기로 fetchHint 호출
       data.forEach(async (card) => {
-        try {
-          const hintText = await fetchHint(card.card_id);
-          setDueCards((prev) =>
-            prev.map((item) =>
-              item.card_id === card.card_id ? { ...item, hint: hintText } : item
-            )
-          );
-        } catch {
-          // hint 요청 실패 시 아무 동작 없이 빈 문자열 유지
+        const { card_id, card_type, stage } = card;
+        // word: stage 3,4 / concept: stage 2,3,4
+        const needHint =
+          (card_type === "word" && [3, 4].includes(stage)) ||
+          (card_type === "concept" && [2, 3, 4].includes(stage));
+
+        if (needHint) {
+          try {
+            const hintText = await fetchHint(card_id);
+            setDueCards((prev) =>
+              prev.map((item) =>
+                item.card_id === card_id ? { ...item, hint: hintText } : item
+              )
+            );
+          } catch {
+            // 힌트 로딩 실패 시 빈 문자열 유지
+          }
         }
       });
     } catch {
@@ -75,7 +76,6 @@ export default function ReviewPage() {
     loadDueCards();
   }, [testMode]);
 
-  // countdown 타이머: 30초(일반 모드) 혹은 5초(테스트 모드)
   useEffect(() => {
     const intervals = [];
     Object.entries(countdown).forEach(([card_id, timeLeft]) => {
@@ -117,7 +117,6 @@ export default function ReviewPage() {
 
       setFeedbacks((prev) => ({ ...prev, [id]: result.feedback }));
 
-      // ─────────── 1) 4단계 정답 후 모달 띄우기 ───────────
       if (result.completed && result.related_concepts?.length > 0) {
         setRelatedList(result.related_concepts);
         setSelectedCardId(id);
@@ -125,14 +124,12 @@ export default function ReviewPage() {
         return;
       }
 
-      // ─────────── 2) 다른 단계에서 정답 맞춘 경우 ───────────
       if (result.is_correct) {
         alert("✅ 정답입니다!");
         loadDueCards();
         return;
       }
 
-      // ─────────── 3) 첫 오답 재시도 허용 ───────────
       if (result.retry_allowed) {
         if (testMode) {
           setCountdown((prev) => ({ ...prev, [id]: 5 }));
@@ -143,7 +140,6 @@ export default function ReviewPage() {
         return;
       }
 
-      // ─────────── 4) 재시도 후 오답인 경우 ───────────
       alert("❌ 오답입니다. 단계가 1로 초기화됩니다.");
       loadDueCards();
     } catch {
@@ -153,9 +149,7 @@ export default function ReviewPage() {
     }
   };
 
-  // 모달에서 연관 개념을 선택했을 때
   const handleSelectRelated = async (concept) => {
-    // 새 concept 카드 생성 (백엔드가 정의를 자동 채워줌)
     const newCard = await createCard({
       concept: concept,
       answer: "",
@@ -170,15 +164,12 @@ export default function ReviewPage() {
     loadDueCards();
   };
 
-  // 모달 닫기 (생성 안 함)
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setRelatedList([]);
     setSelectedCardId(null);
   };
 
-  // ──────────────────────────────────────────────────────────
-  // 개선된 로딩 UI: 스켈레톤 카드 3개 보여주기
   const renderLoadingSkeleton = () => {
     const skeletons = [1, 2, 3];
     return (
@@ -245,7 +236,12 @@ export default function ReviewPage() {
               transition={{ duration: 0.3 }}
             >
               <p className="font-medium text-lg mb-2">문제: {card.concept}</p>
-              <p className="text-gray-500 mb-3">{card.hint || "힌트 로딩 중..."}</p>
+              <p className="text-gray-500 mb-3">
+                {/* stage 1은 힌트 없음 */}
+                {card.stage === 1
+                  ? ""
+                  : card.hint || "힌트 로딩 중..."}
+              </p>
 
               <input
                 type="text"
@@ -320,7 +316,6 @@ export default function ReviewPage() {
         })
       )}
 
-      {/* 관련 개념 생성 여부를 묻는 모달 */}
       <RelatedConceptModal
         isOpen={isModalOpen}
         relatedList={relatedList}

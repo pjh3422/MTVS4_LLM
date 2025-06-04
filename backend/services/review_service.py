@@ -1,4 +1,5 @@
 # backend/services/review_service.py
+
 from typing import Dict, Any, List
 from interfaces.llm_interface import ILLMService
 from services.card_service import CardService
@@ -27,7 +28,7 @@ class ReviewService:
         1) 사용자 답안 평가
         2) 피드백 생성
         3) 만약 stage == 4 & is_correct: related_concepts 반환 (자동 생성은 프론트에서 선택)
-           → concept 카드인 경우 심화 문제도 반환
+           → concept 카드인 경우 심화 문제 생성을 제거했음
         4) is_correct 아닌 경우 기존 재시도/스케줄 로직
         """
         card = self.card_service.get_card(card_id)
@@ -72,10 +73,10 @@ class ReviewService:
         if is_correct and card.stage == 4:
             result["completed"] = True
 
-            # concept 카드만 심화문제 생성
-            if card.card_type == "concept":
-                adv_qs = self.llm_service.generate_advanced_questions(card.concept)
-                result["advanced_questions"] = adv_qs
+            # (심화 문제 생성 제거)
+            # if card.card_type == "concept":
+            #     adv_qs = self.llm_service.generate_advanced_questions(card.concept)
+            #     result["advanced_questions"] = adv_qs
 
             # 연관 개념 추천
             related = self.llm_service.generate_related_concepts(card.concept)
