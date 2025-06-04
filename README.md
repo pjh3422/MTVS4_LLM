@@ -141,6 +141,31 @@ memorization_system/
 - 기본적으로 http://0.0.0.0:8000에서 FastAPI 서버가 실행됩니다.
 - `reload=True` 옵션 덕분에 코드 수정 시 자동 리로드됩니다.
 
+### 4.2 프론트엔드 애플리케이션
+
+1. 다른 터미널 창/탭을 열어 프론트엔드 폴더로 이동
+    
+    ```bash
+    cd memorization_system/frontend
+    
+    ```
+    
+2. (최초 1회) 패키지 설치
+    
+    ```bash
+    npm install
+    
+    ```
+    
+3. 개발 서버 실행
+    
+    ```bash
+    npm start
+    
+    ```
+    
+    - 기본적으로 `http://localhost:3000`에서 React 개발 서버가 실행됩니다.
+    - 브라우저가 자동으로 열리며, UI를 통해 복습 기능을 체험할 수 있습니다.
 ---
 
 # 
@@ -190,9 +215,7 @@ memorization_system/
 
 1. **`.gitignore` 예시**
     
-    ```
-    gitignore
-    복사편집
+    ```gitignore
     # Python 가상환경
     .venv/
     __pycache__/
