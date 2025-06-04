@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import datetime
 from pydantic import BaseModel
+import uvicorn
 from storage.sqlite_storage import SQLiteCardStorage
 from services.card_service import CardService
 from services.review_service import ReviewService
@@ -68,11 +69,17 @@ class ReviewResponse(BaseModel):
 class ReviewIn(BaseModel):
     user_answer: str
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 카드 생성/조회/수정/삭제
+# ─────────────────────────────────────────────────────────────────────────────
+
 @app.post("/cards", response_model=CardOut)
 def create_card(card: CardIn):
+    # ★ 자동 정의 생성: answer가 빈 문자열이고 card_type이 "concept"일 때 LLM으로 정의 생성
     if not card.answer and card.card_type == "concept":
         generated_def = llm_service.generate_concept_definition(card.concept)
         card.answer = generated_def
+
     new_card: MemorizationCard = card_service.create_card(card.concept, card.answer, card.card_type)
     next_time = schedule_service.get_next_review_time(new_card.stage, new_card.card_type)
     new_card.update_next_review(next_time)
@@ -105,21 +112,35 @@ def get_cards():
 
 @app.get("/cards/due", response_model=List[DueCardOut])
 def get_due_cards(test: bool = Query(False)):
+    """
+    수정: 여기서 hint를 바로 생성하지 않고 빈 문자열로 반환합니다.
+    클라이언트는 별도 엔드포인트에서 hint를 비동기로 요청해야 합니다.
+    """
     if test:
         cards = card_service.get_all_cards()
     else:
         cards = card_service.get_due_cards()
-    result = []
-    for c in cards:
-        hint = llm_service.generate_hint(c.concept, c.answer, c.stage)
-        result.append(DueCardOut(
+    return [
+        DueCardOut(
             card_id=c.card_id,
             concept=c.concept,
             stage=c.stage,
             next_review=c.next_review,
-            hint=hint
-        ))
-    return result
+            hint=""  # 수정: 빈 문자열로 초기화
+        )
+        for c in cards
+    ]
+
+@app.get("/cards/{card_id}/hint")
+def get_card_hint(card_id: str):
+    """
+    새로운 엔드포인트: 특정 카드의 hint를 LLM을 사용해 생성하여 반환
+    """
+    c = card_service.get_card(card_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Card not found")
+    hint = llm_service.generate_hint(c.concept, c.answer, c.stage)
+    return {"hint": hint}
 
 @app.get("/cards/{card_id}", response_model=CardOut)
 def get_card(card_id: str):
@@ -164,6 +185,10 @@ def delete_card(card_id: str):
         raise HTTPException(status_code=404, detail="Card not found")
     return {"detail": "Card deleted"}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 복습(리뷰) 엔드포인트
+# ─────────────────────────────────────────────────────────────────────────────
+
 @app.post("/cards/{card_id}/review", response_model=ReviewResponse)
 def review_card(
     card_id: str,
@@ -186,4 +211,13 @@ def review_card(
         completed=result.get("completed", False),
         related_concepts=result.get("related_concepts"),
         advanced_questions=result.get("advanced_questions")
+    )
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "api:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
     )

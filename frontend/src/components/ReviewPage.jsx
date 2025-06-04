@@ -1,6 +1,6 @@
 // frontend/src/components/ReviewPage.jsx
 import React, { useEffect, useState } from "react";
-import { fetchDueCards, reviewCard, createCard } from "../services/api";
+import { fetchDueCards, fetchHint, reviewCard, createCard } from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import RelatedConceptModal from "./RelatedConceptModal";
 
@@ -24,6 +24,7 @@ export default function ReviewPage() {
     setLoading(true);
     try {
       const data = await fetchDueCards(testMode);
+      // 빈 hint로 초기화된 카드 목록을 먼저 화면에 표시
       setDueCards(data);
 
       const initText = {};
@@ -40,6 +41,8 @@ export default function ReviewPage() {
         initRetry[c.card_id] = false;
         initCountdown[c.card_id] = 0;
         initLoading[c.card_id] = false;
+        // ★ 빈 hint 설정 (백엔드가 빈 문자열로 보냄)
+        c.hint = "";
       });
 
       setCurrentAnswer(initText);
@@ -48,6 +51,20 @@ export default function ReviewPage() {
       setRetryMode(initRetry);
       setCountdown(initCountdown);
       setLoadingCard(initLoading);
+
+      // 각 카드에 대해 비동기로 hint 요청
+      data.forEach(async (card) => {
+        try {
+          const hintText = await fetchHint(card.card_id);
+          setDueCards((prev) =>
+            prev.map((item) =>
+              item.card_id === card.card_id ? { ...item, hint: hintText } : item
+            )
+          );
+        } catch {
+          // hint 요청 실패 시 아무 동작 없이 빈 문자열 유지
+        }
+      });
     } catch {
       console.error("복습 카드 로드 실패");
     }
@@ -167,16 +184,12 @@ export default function ReviewPage() {
     return (
       <div className="space-y-6">
         {skeletons.map((i) => (
-          <div key={i} className="animate-pulse flex space-x-4">
-            <div className="rounded-md bg-gray-300 h-6 w-3/5"></div>
-            <div className="rounded-md bg-gray-300 h-6 w-2/5"></div>
-          </div>
-        ))}
-        {skeletons.map((i) => (
-          <div key={`input-${i}`} className="animate-pulse flex flex-col space-y-2">
-            <div className="rounded-md bg-gray-300 h-5 w-full"></div>
-            <div className="rounded-md bg-gray-200 h-8 w-full"></div>
-            <div className="rounded-md bg-gray-300 h-8 w-32 mt-2"></div>
+          <div key={i} className="animate-pulse flex flex-col space-y-2">
+            <div className="rounded-md bg-gray-300 h-6 w-3/5 mb-2"></div>
+            <div className="rounded-md bg-gray-300 h-6 w-2/5 mb-4"></div>
+            <div className="rounded-md bg-gray-300 h-5 w-full mb-2"></div>
+            <div className="rounded-md bg-gray-200 h-8 w-full mb-2"></div>
+            <div className="rounded-md bg-gray-300 h-8 w-32"></div>
           </div>
         ))}
       </div>
@@ -232,7 +245,7 @@ export default function ReviewPage() {
               transition={{ duration: 0.3 }}
             >
               <p className="font-medium text-lg mb-2">문제: {card.concept}</p>
-              <p className="text-gray-500 mb-3">힌트: {card.hint}</p>
+              <p className="text-gray-500 mb-3">{card.hint || "힌트 로딩 중..."}</p>
 
               <input
                 type="text"
