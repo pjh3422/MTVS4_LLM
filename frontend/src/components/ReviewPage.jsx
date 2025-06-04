@@ -23,10 +23,15 @@ export default function ReviewPage() {
     setLoading(true);
     try {
       const data = await fetchDueCards(testMode);
-      // card_type 필드가 포함된 data를 set
       setDueCards(data);
 
-      const initText = {}, initFeedback = {}, initSubmitted = {}, initRetry = {}, initCountdown = {}, initLoading = {};
+      const initText = {},
+        initFeedback = {},
+        initSubmitted = {},
+        initRetry = {},
+        initCountdown = {},
+        initLoading = {};
+
       data.forEach((c) => {
         initText[c.card_id] = "";
         initFeedback[c.card_id] = "";
@@ -34,7 +39,6 @@ export default function ReviewPage() {
         initRetry[c.card_id] = false;
         initCountdown[c.card_id] = 0;
         initLoading[c.card_id] = false;
-        // hint는 이미 word stage2에서 셋팅됐거나 빈 문자열
         c.hint = c.hint || "";
       });
 
@@ -45,10 +49,8 @@ export default function ReviewPage() {
       setCountdown(initCountdown);
       setLoadingCard(initLoading);
 
-      // 힌트가 필요한 카드만 비동기로 fetchHint 호출
       data.forEach(async (card) => {
         const { card_id, card_type, stage } = card;
-        // word: stage 3,4 / concept: stage 2,3,4
         const needHint =
           (card_type === "word" && [3, 4].includes(stage)) ||
           (card_type === "concept" && [2, 3, 4].includes(stage));
@@ -62,7 +64,7 @@ export default function ReviewPage() {
               )
             );
           } catch {
-            // 힌트 로딩 실패 시 빈 문자열 유지
+            // 실패 시 빈 문자열 유지
           }
         }
       });
@@ -108,15 +110,10 @@ export default function ReviewPage() {
     setFeedbacks((prev) => ({ ...prev, [id]: "확인 중..." }));
 
     try {
-      const result = await reviewCard(
-        id,
-        currentAnswer[id],
-        testMode,
-        retryMode[id]
-      );
-
+      const result = await reviewCard(id, currentAnswer[id], testMode, retryMode[id]);
       setFeedbacks((prev) => ({ ...prev, [id]: result.feedback }));
 
+      // 4단계 정답 후 모달
       if (result.completed && result.related_concepts?.length > 0) {
         setRelatedList(result.related_concepts);
         setSelectedCardId(id);
@@ -131,12 +128,9 @@ export default function ReviewPage() {
       }
 
       if (result.retry_allowed) {
-        if (testMode) {
-          setCountdown((prev) => ({ ...prev, [id]: 5 }));
-        } else {
-          setRetryMode((prev) => ({ ...prev, [id]: true }));
-          setSubmitted((prev) => ({ ...prev, [id]: false }));
-        }
+        const wait = testMode ? 5 : 30;
+        setCountdown((prev) => ({ ...prev, [id]: wait }));
+        setSubmitted((prev) => ({ ...prev, [id]: false }));
         return;
       }
 
@@ -150,14 +144,8 @@ export default function ReviewPage() {
   };
 
   const handleSelectRelated = async (concept) => {
-    const newCard = await createCard({
-      concept: concept,
-      answer: "",
-      card_type: "concept"
-    });
-
+    const newCard = await createCard({ concept, answer: "", card_type: "concept" });
     alert(`✅ '${concept}' 카드가 생성되었습니다!\n정의: ${newCard.answer}`);
-
     setIsModalOpen(false);
     setRelatedList([]);
     setSelectedCardId(null);
@@ -237,10 +225,7 @@ export default function ReviewPage() {
             >
               <p className="font-medium text-lg mb-2">문제: {card.concept}</p>
               <p className="text-gray-500 mb-3">
-                {/* stage 1은 힌트 없음 */}
-                {card.stage === 1
-                  ? ""
-                  : card.hint || "힌트 로딩 중..."}
+                {card.stage === 1 ? "" : card.hint || "힌트 로딩 중..."}
               </p>
 
               <input
@@ -254,9 +239,7 @@ export default function ReviewPage() {
                     ? "재시도하세요"
                     : "정답을 입력하세요"
                 }
-                disabled={
-                  (submitted[id] && !retryMode[id]) || countdown[id] > 0
-                }
+                disabled={(submitted[id] && !retryMode[id]) || countdown[id] > 0}
                 className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-3 ${
                   (submitted[id] && !retryMode[id]) || countdown[id] > 0
                     ? "bg-gray-100 cursor-not-allowed"
@@ -274,9 +257,7 @@ export default function ReviewPage() {
                 } text-white py-2 px-6 rounded-md transition-colors duration-200`}
               >
                 {loadingCard[id] ? (
-                  <motion.div
-                    className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"
-                  />
+                  <motion.div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : countdown[id] > 0 ? (
                   `대기 중 (${countdown[id]}초)`
                 ) : submitted[id] && !retryMode[id] ? (
@@ -296,9 +277,7 @@ export default function ReviewPage() {
                     exit={{ opacity: 0 }}
                     className="mt-3"
                   >
-                    <p className="text-base text-gray-700">
-                      피드백: {feedbacks[id]}
-                    </p>
+                    <p className="text-base text-gray-700">피드백: {feedbacks[id]}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
