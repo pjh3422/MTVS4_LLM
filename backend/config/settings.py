@@ -27,7 +27,7 @@ class LLMConfig:
     """LLM 설정"""
     model_name: str = "gemma3:4b-it-qat"
     temperature: float = 0.7
-    embedder_name: str = "all-MiniLM-L6-v2"
+    embedder_name: str = "nlpai-lab/KoE5"
     similarity_threshold: float = 0.75
 
 @dataclass

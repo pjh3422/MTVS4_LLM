@@ -1,7 +1,7 @@
 # backend/api.py
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
 import datetime
 from pydantic import BaseModel
 import uvicorn
@@ -10,6 +10,8 @@ from services.card_service import CardService
 from services.review_service import ReviewService
 from services.schedule_service import ScheduleService
 from services.llm_service import LLMService
+from hook.discord_notifier import start_scheduler, set_webhook_url, discord_webhook_url
+
 from models.card import MemorizationCard
 from config.settings import SystemConfig
 
@@ -18,7 +20,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -48,12 +50,10 @@ class CardOut(BaseModel):
     next_review: datetime.datetime = None
     success_rate: float
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 수정: 카드 타입(card_type) 필드를 추가함
 class DueCardOut(BaseModel):
     card_id: str
     concept: str
-    card_type: str              # ★ 추가
+    card_type: str
     stage: int
     next_review: datetime.datetime = None
     hint: str
@@ -61,23 +61,38 @@ class DueCardOut(BaseModel):
 class ReviewResponse(BaseModel):
     is_correct: bool
     feedback: str
-    next_review: Optional[datetime.datetime] = None
-    advanced: Optional[bool] = False
+    next_review: datetime.datetime | None = None
+    advanced: bool | None = False
     stage: int
     retry_allowed: bool = False
     completed: bool = False
-    related_concepts: Optional[List[str]] = None
-    advanced_questions: Optional[List[str]] = None
+    related_concepts: list[str] | None = None
+    advanced_questions: list[str] | None = None
 
 class ReviewIn(BaseModel):
     user_answer: str
+
+class WebhookIn(BaseModel):
+    url: str
+
+@app.on_event("startup")
+def on_startup():
+    start_scheduler()
+
+@app.get("/settings/webhook")
+def get_webhook():
+    return {"url": discord_webhook_url}
+
+@app.post("/settings/webhook")
+def update_webhook(input: WebhookIn):
+    set_webhook_url(input.url)
+    return {"detail": "Webhook URL이 업데이트 되었습니다."}
 
 @app.post("/cards", response_model=CardOut)
 def create_card(card: CardIn):
     if not card.answer and card.card_type == "concept":
         generated_def = llm_service.generate_concept_definition(card.concept)
         card.answer = generated_def
-
     new_card: MemorizationCard = card_service.create_card(card.concept, card.answer, card.card_type)
     next_time = schedule_service.get_next_review_time(new_card.stage, new_card.card_type)
     new_card.update_next_review(next_time)
@@ -92,7 +107,7 @@ def create_card(card: CardIn):
         success_rate=new_card.get_success_rate()
     )
 
-@app.get("/cards", response_model=List[CardOut])
+@app.get("/cards", response_model=list[CardOut])
 def get_cards():
     cards = card_service.get_all_cards()
     return [
@@ -108,33 +123,23 @@ def get_cards():
         for c in cards
     ]
 
-@app.get("/cards/due", response_model=List[DueCardOut])
+@app.get("/cards/due", response_model=list[DueCardOut])
 def get_due_cards(test: bool = Query(False)):
-    """
-    수정: DueCardOut에 card_type을 포함하여 반환
-    """
     if test:
         cards = card_service.get_all_cards()
     else:
         cards = card_service.get_due_cards()
-
-    result = []
+    result: list[DueCardOut] = []
     for c in cards:
         hint = ""
-        if c.card_type == "word":
-            if c.stage == 2:
-                answer = c.answer or ""
-                hint = answer[0] + "*" * (len(answer) - 1) if answer else ""
-            # stage 1, 3, 4: 빈 문자열
-        else:
-            # concept: 모든 stage에서 빈 문자열
-            hint = ""
-
+        if c.card_type == "word" and c.stage == 2:
+            answer = c.answer or ""
+            hint = answer[0] + "*" * (len(answer) - 1) if answer else ""
         result.append(
             DueCardOut(
                 card_id=c.card_id,
                 concept=c.concept,
-                card_type=c.card_type,   # ★ 반환
+                card_type=c.card_type,
                 stage=c.stage,
                 next_review=c.next_review,
                 hint=hint
@@ -144,13 +149,9 @@ def get_due_cards(test: bool = Query(False)):
 
 @app.get("/cards/{card_id}/hint")
 def get_card_hint(card_id: str):
-    """
-    Hint 엔드포인트: card_type과 stage에 따라 LLM 힌트 생성
-    """
     c = card_service.get_card(card_id)
     if not c:
         raise HTTPException(status_code=404, detail="Card not found")
-
     hint = llm_service.generate_hint(c.concept, c.answer, c.stage, c.card_type)
     return {"hint": hint}
 
@@ -207,7 +208,6 @@ def review_card(
     card = card_service.get_card(card_id)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
-
     result = review_service.process_review(card_id, review.user_answer, retry)
     return ReviewResponse(
         is_correct=result["is_correct"],
@@ -221,11 +221,5 @@ def review_card(
         advanced_questions=result.get("advanced_questions")
     )
 
-
 if __name__ == "__main__":
-    uvicorn.run(
-        "api:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)

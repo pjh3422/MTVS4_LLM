@@ -4,3 +4,5 @@ sentence-transformers
 scikit-learn
 langchain-ollama
 langchain-core
+requests
+APScheduler

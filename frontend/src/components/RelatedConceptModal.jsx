@@ -1,64 +1,38 @@
-// frontend/src/components/RelatedConceptModal.jsx
 import React from "react";
 import { motion } from "framer-motion";
-import PropTypes from "prop-types";
 
-const backdropVariants = {
-  visible: { opacity: 1 },
-  hidden: { opacity: 0 },
-};
-
-const modalVariants = {
-  hidden: { y: "-100vh", opacity: 0 },
-  visible: { y: "0", opacity: 1, transition: { delay: 0.1 } },
-};
-
-export default function RelatedConceptModal({
-  isOpen,
-  relatedList,
-  onSelect,
-  onClose
-}) {
+export default function RelatedConceptModal({ isOpen, relatedList, onSelect, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <motion.div
-      className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50"
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-    >
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
       <motion.div
-        className="bg-white rounded-lg p-6 w-80 max-w-full mx-4"
-        variants={modalVariants}
+        className="bg-white rounded-2xl shadow-xl p-6 w-80 max-w-full"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: 0.2 }}
       >
-        <h2 className="text-xl font-semibold mb-4">🔗 연결 카드를 생성하시겠습니까?</h2>
-        <p className="text-sm mb-4">연관된 개념들:</p>
-        <ul className="max-h-60 overflow-auto space-y-2 mb-4">
-          {relatedList.map((concept, idx) => (
-            <li
-              key={idx}
-              className="p-2 border rounded hover:bg-indigo-100 cursor-pointer transition"
+        <h2 className="text-xl font-medium mb-4">연관 개념 생성</h2>
+        <p className="text-gray-600 mb-4">다음 중 카드로 생성할 개념을 선택하세요.</p>
+        <div className="space-y-2 mb-6">
+          {relatedList.map((concept) => (
+            <button
+              key={concept}
               onClick={() => onSelect(concept)}
+              className="w-full text-left px-4 py-2 bg-background hover:bg-gray-100 rounded-lg transition"
             >
               {concept}
-            </li>
+            </button>
           ))}
-        </ul>
+        </div>
         <button
           onClick={onClose}
-          className="mt-2 w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded transition"
+          className="mt-2 w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition"
         >
-          아니요, 생략
+          닫기
         </button>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
-
-RelatedConceptModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  relatedList: PropTypes.arrayOf(PropTypes.string).isRequired,
-  onSelect: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired
-};

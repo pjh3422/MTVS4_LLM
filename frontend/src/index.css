@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 글로벌 커스텀 */
+body {
+  @apply bg-background text-gray-800;
+}
+
+/* 토스 스타일 버튼 */
+.button-primary {
+  @apply bg-primary text-white font-medium rounded-lg px-4 py-2 hover:bg-primary/90 transition;
+}
+.button-danger {
+  @apply bg-red-500 text-white font-medium rounded-lg px-4 py-2 hover:bg-red-600 transition;
+}
+.input-field {
+  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary;
+}
+.card-container {
+  @apply bg-white rounded-2xl shadow-lg p-6;
+}

@@ -1,4 +1,3 @@
-// frontend/src/services/api.js
 import axios from "axios";
 
 const API_URL = "http://localhost:8000";
@@ -24,7 +23,7 @@ export const deleteCard = async (card_id) => {
 
 export const fetchDueCards = async (testMode = false) => {
   const response = await axios.get(`${API_URL}/cards/due`, {
-    params: { test: testMode }
+    params: { test: testMode },
   });
   return response.data;
 };
@@ -41,4 +40,13 @@ export const reviewCard = async (card_id, user_answer, testMode = false, retry =
     { params: { test: testMode, retry } }
   );
   return response.data;
+};
+
+export const getWebhook = async () => {
+  const response = await axios.get(`${API_URL}/settings/webhook`);
+  return response.data.url;
+};
+
+export const setWebhook = async (url) => {
+  await axios.post(`${API_URL}/settings/webhook`, { url });
 };
