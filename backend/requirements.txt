@@ -1,8 +1,9 @@
-fastapi
-uvicorn
-sentence-transformers
-scikit-learn
-langchain-ollama
-langchain-core
-requests
-APScheduler
+fastapi==0.115.12
+uvicorn==0.34.3
+pydantic==2.11.5
+requests==2.32.3
+APScheduler==3.11.0
+langchain-core==0.3.61
+langchain-ollama==0.3.3
+sentence-transformers==4.1.0
+scikit-learn==1.6.1
