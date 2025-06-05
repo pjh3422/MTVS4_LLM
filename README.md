@@ -61,7 +61,7 @@
    - [Node.js 공식 사이트](https://nodejs.org/)에서 최신 LTS 버전 다운로드 & 설치
 
 2. **Ollama 설치**
-   - 
+   - [Ollama 공식 사이트](https://ollama.com/download)에서 Ollama 설치 및 터미널에서 ollama pull gemma3:4b-it-qat 실행(최초 1회)
 
 4. **VSCode 익스텐션**  
    - PostCSS Language Support  
