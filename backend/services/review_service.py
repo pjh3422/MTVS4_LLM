@@ -41,25 +41,16 @@ class ReviewService:
             return {"error": "Card not found"}
 
         if card.card_type == "concept":
-            similarity = self.llm_service._calculate_similarity(card.answer, user_answer)
-
-            if similarity < CONCEPT_SIM_PASS:
-                # ❌ 1차 컷 탈락 → 즉시 오답
-                is_correct = False
-                feedback   = f"유사도 {similarity:.2f}로 정답과 핵심이 크게 다릅니다."
-
+            if self.llm_service.is_equivalent(card.answer, user_answer):
+                is_correct = True
+                feedback   = ""  # 정답이므로 별도 피드백 없음
             else:
-
-                if self.llm_service.is_equivalent(card.answer, user_answer):
-                    is_correct = True
-                    feedback   = ""  # 정답이므로 별도 피드백 없음
-                else:
-                    is_correct = False
-                    feedback = self.llm_service.generate_feedback(
-                    {"concept": card.concept, "answer": card.answer},  # correct_answer 그대로 dict
-                    user_answer,                                       # user_answer
-                    False                                              # is_correct flag
-                )
+                is_correct = False
+                feedback = self.llm_service.generate_feedback(
+                {"concept": card.concept, "answer": card.answer},  # correct_answer 그대로 dict
+                user_answer,                                       # user_answer
+                False                                              # is_correct flag
+            )
 
 
             
