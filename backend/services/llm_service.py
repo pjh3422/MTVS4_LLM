@@ -149,3 +149,33 @@ class LLMService(ILLMService):
         chain: Runnable = prompt | self.model | StrOutputParser()
         raw = chain.invoke({"concept": concept, "n": n})
         return [q.strip() for q in raw.split(",") if q.strip()]
+    
+    
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+            """
+            두 문자열을 임베딩한 뒤 코사인 유사도를 반환한다.
+            반환값은 0.0~1.0 사이 실수.
+            """
+            embeddings = self.embedder.encode([text1, text2])
+            score = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
+
+            return round(float(score), 4)
+    
+    # NEW : 의미 동등성 YES/NO 판정
+    def is_equivalent(self, correct_answer: str, user_answer: str) -> bool:
+        yesno_prompt = PromptTemplate.from_template(
+            """
+Determine whether the user's answer means exactly the same as the correct answer.
+
+Correct Answer: {correct_answer}
+User Answer: {user_answer}
+
+If their meanings are not completely identical, respond NO.
+Respond with one word only: YES or NO (uppercase).
+"""
+        )
+        chain: Runnable = yesno_prompt | self.model | StrOutputParser()
+        result = chain.invoke(
+            {"correct_answer": correct_answer, "user_answer": user_answer}
+        ).strip().upper()
+        return result == "YES"

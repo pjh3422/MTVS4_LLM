@@ -7,6 +7,12 @@ from models.review import ReviewRecord
 from config.settings import ReviewConfig
 from datetime import datetime, timedelta
 
+# embedding 유사도 통과 설정 
+
+WORD_SIM_CORRECT = 0.95
+WORD_SIM_NEAR    = 0.72
+CONCEPT_SIM_PASS = 0.75
+
 class ReviewService:
     """복습 서비스 - LLM 힌트/피드백 + 4단계 통과 시 관련 개념 추천"""
 
@@ -34,18 +40,40 @@ class ReviewService:
         if not card:
             return {"error": "Card not found"}
 
-        # 1) 평가
-        is_correct = self.llm_service.evaluate_answer(
-            {"concept": card.concept, "answer": card.answer}, user_answer
-        )
+        if card.card_type == "concept":
+            similarity = self.llm_service._calculate_similarity(card.answer, user_answer)
 
-        # 2) 피드백
-        feedback = self.llm_service.generate_feedback(
-            {"concept": card.concept, "answer": card.answer},
-            user_answer,
-            is_correct
-        )
+            if similarity < CONCEPT_SIM_PASS:
+                # ❌ 1차 컷 탈락 → 즉시 오답
+                is_correct = False
+                feedback   = f"유사도 {similarity:.2f}로 정답과 핵심이 크게 다릅니다."
 
+            else:
+
+                if self.llm_service.is_equivalent(card.answer, user_answer):
+                    is_correct = True
+                    feedback   = ""  # 정답이므로 별도 피드백 없음
+                else:
+                    is_correct = False
+                    feedback = self.llm_service.generate_feedback(
+                    {"concept": card.concept, "answer": card.answer},  # correct_answer 그대로 dict
+                    user_answer,                                       # user_answer
+                    False                                              # is_correct flag
+                )
+
+
+            
+        else:  # word
+            sim = self.llm_service._calculate_similarity(card.answer, user_answer)
+            if sim >= WORD_SIM_CORRECT:
+                is_correct = True
+                feedback   = ""
+            elif sim >= WORD_SIM_NEAR:
+                is_correct = False
+                feedback   = "오타가 없는지 확인해주세요."
+            else:
+                is_correct = False
+                feedback   = f"유사도 {sim:.2f}로 정답과 다릅니다."
         # 리뷰 기록
         record = ReviewRecord(
             stage=card.stage,

@@ -45,3 +45,13 @@ class ILLMService(ABC):
     def generate_advanced_questions(self, concept: str, n: int = 3) -> List[str]:
         """주어진 개념에 대해 심화 문제(n개) 생성"""
         pass
+
+    @abstractmethod
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """유사도 비교"""
+        pass
+
+    @abstractmethod
+    def is_equivalent(self, correct_answer: str, user_answer: str) -> bool:
+        """yes/no"""
+        pass
