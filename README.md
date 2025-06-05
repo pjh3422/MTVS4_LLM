@@ -58,18 +58,21 @@
 ## 2. 사전 준비
 
 1. **Node.js 설치**  
-   - [Node.js 공식 사이트](https://nodejs.org/)에서 최신 LTS 버전 다운로드 & 설치  
+   - [Node.js 공식 사이트](https://nodejs.org/)에서 최신 LTS 버전 다운로드 & 설치
 
-2. **VSCode 익스텐션**  
+2. **Ollama 설치**
+   - 
+
+4. **VSCode 익스텐션**  
    - PostCSS Language Support  
    - Tailwind CSS IntelliSense  
    - SQLite (SQLite Viewer 등)
 
-3. **Python 환경**  
+5. **Python 환경**  
    - Python 3.12 이상 (가상환경 권장)  
    - `uvicorn`, `fastapi`, `pydantic`, `langchain-ollama`, `sentence-transformers` 등
 
-4. **Git (선택 사항)**  
+6. **Git (선택 사항)**  
    - 프로젝트 버전 관리를 위해 Git 설치 및 GitHub 계정 준비
 
 ---
