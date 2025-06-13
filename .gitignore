@@ -5,6 +5,7 @@ __pycache__/
 node_modules/
 cards.db
 *.db
+webhook_config.json
 
 # C extensions
 *.so
